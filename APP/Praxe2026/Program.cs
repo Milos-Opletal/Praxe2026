@@ -19,6 +19,17 @@ namespace Praxe2026
         public string UninstallString { get; set; }
     }
 
+    public class ServerLists
+    {
+        public List<string> whitelist { get; set; }
+        public List<string> blacklist { get; set; }
+    }
+
+    [System.Text.Json.Serialization.JsonSerializable(typeof(ServerLists))]
+    internal partial class AppJsonSerializerContext : System.Text.Json.Serialization.JsonSerializerContext
+    {
+    }
+
     class Program
     {
         // --- CONFIGURATION ---
@@ -120,10 +131,10 @@ namespace Praxe2026
             Console.WriteLine("\n[3] Syncing Application Inventory...");
             using HttpClient client = new HttpClient();
             
-            JsonElement response;
+            ServerLists response;
             try
             {
-                 response = await client.GetFromJsonAsync<JsonElement>($"{ServerUrl}/lists");
+                 response = await client.GetFromJsonAsync($"{ServerUrl}/lists", AppJsonSerializerContext.Default.ServerLists);
             }
             catch (Exception ex)
             {
@@ -131,8 +142,8 @@ namespace Praxe2026
                 return;
             }
 
-            var whitelist = response.GetProperty("whitelist").EnumerateArray().Select(x => x.GetString()).ToList();
-            var blacklist = response.GetProperty("blacklist").EnumerateArray().Select(x => x.GetString()).ToList();
+            var whitelist = response.whitelist ?? new List<string>();
+            var blacklist = response.blacklist ?? new List<string>();
 
             var installedApps = GetInstalledApps();
             
@@ -172,8 +183,8 @@ namespace Praxe2026
 
                 if (newWhitelist.Count > 0 || newBlacklist.Count > 0)
                 {
-                    var payload = new { whitelist = newWhitelist, blacklist = newBlacklist };
-                    await client.PostAsJsonAsync($"{ServerUrl}/lists", payload);
+                    var payload = new ServerLists { whitelist = newWhitelist, blacklist = newBlacklist };
+                    await client.PostAsJsonAsync($"{ServerUrl}/lists", payload, AppJsonSerializerContext.Default.ServerLists);
                     Console.WriteLine("Server lists updated.");
                 }
             }
