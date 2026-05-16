@@ -65,7 +65,8 @@ namespace Praxe2026
                 double usedGb = used / 1073741824.0;
                 double percentFree = (double)free / total * 100;
                 
-                Console.WriteLine($"{drive.Name} {usedGb:F2}GB/{totalGb:F2}GB ({percentFree:F1}% free)");
+                string label = string.IsNullOrEmpty(drive.VolumeLabel) ? "Local Disk" : drive.VolumeLabel;
+                Console.WriteLine($"{drive.Name} [{label}] {usedGb:F2}GB/{totalGb:F2}GB ({percentFree:F1}% free)");
             }
         }
 
