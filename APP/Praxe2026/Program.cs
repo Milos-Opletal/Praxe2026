@@ -54,8 +54,19 @@ namespace Praxe2026
             await ProcessWallpapersAsync();
             await ProcessApplicationsAsync();
             
-            Console.WriteLine("\nAll tasks completed. Press any key to exit.");
-            Console.ReadKey();
+            Console.WriteLine("\nAll tasks completed.");
+            foreach (var drive in DriveInfo.GetDrives().Where(d => d.IsReady))
+            {
+                long total = drive.TotalSize;
+                long free = drive.AvailableFreeSpace;
+                long used = total - free;
+                
+                double totalGb = total / 1073741824.0;
+                double usedGb = used / 1073741824.0;
+                double percentFree = (double)free / total * 100;
+                
+                Console.WriteLine($"{drive.Name} {usedGb:F2}GB/{totalGb:F2}GB ({percentFree:F1}% free)");
+            }
         }
 
         static bool IsAdministrator()
