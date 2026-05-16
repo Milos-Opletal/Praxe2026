@@ -52,7 +52,7 @@ namespace Praxe2026
             
             TriggerWindowsUpdates();
             await ProcessWallpapersAsync();
-            //await ProcessApplicationsAsync();
+            await ProcessApplicationsAsync();
             
             Console.WriteLine("\nAll tasks completed.");
             foreach (var drive in DriveInfo.GetDrives().Where(d => d.IsReady))
