@@ -1,0 +1,15 @@
+version: '3.8'
+
+services:
+  server:
+    build: .
+    container_name: praxe2026_server
+    ports:
+      - "4331:4331"
+    restart: unless-stopped
+    volumes:
+      - /home/milos/Praxe2026/data:/app/data
+      - /home/milos/Praxe2026/static:/app/static
+    environment:
+      - FLASK_ENV=production
+

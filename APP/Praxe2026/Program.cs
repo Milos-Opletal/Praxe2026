@@ -1,0 +1,282 @@
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.IO;
+using System.Linq;
+using System.Net.Http;
+using System.Net.Http.Json;
+using System.Runtime.InteropServices;
+using System.Security.Principal;
+using System.Text.Json;
+using System.Threading.Tasks;
+using Microsoft.Win32;
+
+namespace Praxe2026
+{
+    public class AppEntry
+    {
+        public string Name { get; set; }
+        public string UninstallString { get; set; }
+    }
+
+    class Program
+    {
+        // --- CONFIGURATION ---
+        private const string ServerUrl = "https://praxe2026.milos-scripts.xyz"; // Updated to use production domain
+        // ---------------------
+
+        [DllImport("user32.dll", CharSet = CharSet.Auto)]
+        private static extern int SystemParametersInfo(int uAction, int uParam, string lpvParam, int fuWinIni);
+
+        static async Task Main(string[] args)
+        {
+            if (!IsAdministrator())
+            {
+                Console.WriteLine("Requesting Administrator privileges...");
+                RunAsAdmin();
+                return;
+            }
+
+            Console.WriteLine("=== Praxe2026 Provisioning & Cleanup Tool ===");
+            
+            TriggerWindowsUpdates();
+            await ProcessWallpapersAsync();
+            await ProcessApplicationsAsync();
+            
+            Console.WriteLine("\nAll tasks completed. Press any key to exit.");
+            Console.ReadKey();
+        }
+
+        static bool IsAdministrator()
+        {
+            var identity = WindowsIdentity.GetCurrent();
+            var principal = new WindowsPrincipal(identity);
+            return principal.IsInRole(WindowsBuiltInRole.Administrator);
+        }
+
+        static void RunAsAdmin()
+        {
+            var exeName = Process.GetCurrentProcess().MainModule.FileName;
+            ProcessStartInfo startInfo = new ProcessStartInfo(exeName)
+            {
+                UseShellExecute = true,
+                Verb = "runas"
+            };
+            try { Process.Start(startInfo); } catch { /* User denied UAC */ }
+        }
+
+        static void TriggerWindowsUpdates()
+        {
+            Console.WriteLine("\n[1] Checking for Windows Updates...");
+            try
+            {
+                Process.Start(new ProcessStartInfo("UsoClient.exe", "ScanInstallWait")
+                {
+                    CreateNoWindow = true,
+                    UseShellExecute = false
+                });
+                Console.WriteLine("Updates triggered successfully.");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Failed to trigger updates: {ex.Message}");
+            }
+        }
+
+        static async Task ProcessWallpapersAsync()
+        {
+            Console.WriteLine("\n[2] Downloading and setting wallpapers...");
+            using HttpClient client = new HttpClient();
+            string picsFolder = Environment.GetFolderPath(Environment.SpecialFolder.MyPictures);
+            
+            string wallPath = Path.Combine(picsFolder, "wallpaper.jpg");
+            string lockPath = Path.Combine(picsFolder, "lockscreen.jpg");
+
+            try
+            {
+                byte[] wallBytes = await client.GetByteArrayAsync($"{ServerUrl}/images/wallpaper.jpg");
+                await File.WriteAllBytesAsync(wallPath, wallBytes);
+                
+                byte[] lockBytes = await client.GetByteArrayAsync($"{ServerUrl}/images/lockscreen.jpg");
+                await File.WriteAllBytesAsync(lockPath, lockBytes);
+
+                SystemParametersInfo(0x0014, 0, wallPath, 0x0001 | 0x0002);
+
+                using (RegistryKey key = Registry.LocalMachine.CreateSubKey(@"SOFTWARE\Policies\Microsoft\Windows\Personalization"))
+                {
+                    key.SetValue("LockScreenImage", lockPath, RegistryValueKind.String);
+                }
+                
+                Console.WriteLine("Wallpapers applied successfully.");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Wallpaper error: {ex.Message}");
+            }
+        }
+
+        static async Task ProcessApplicationsAsync()
+        {
+            Console.WriteLine("\n[3] Syncing Application Inventory...");
+            using HttpClient client = new HttpClient();
+            
+            JsonElement response;
+            try
+            {
+                 response = await client.GetFromJsonAsync<JsonElement>($"{ServerUrl}/lists");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Could not connect to server: {ex.Message}");
+                return;
+            }
+
+            var whitelist = response.GetProperty("whitelist").EnumerateArray().Select(x => x.GetString()).ToList();
+            var blacklist = response.GetProperty("blacklist").EnumerateArray().Select(x => x.GetString()).ToList();
+
+            var installedApps = GetInstalledApps();
+            
+            // Auto-Uninstall existing blacklisted apps
+            foreach (var app in installedApps.Where(a => blacklist.Contains(a.Name)))
+            {
+                Console.WriteLine($"[!] Silently removing blacklisted app: {app.Name}");
+                UninstallAppHeadless(app.UninstallString);
+            }
+
+            // Handle unknown apps
+            List<string> newWhitelist = new List<string>();
+            List<string> newBlacklist = new List<string>();
+
+            var unknownApps = installedApps.Where(a => !whitelist.Contains(a.Name) && !blacklist.Contains(a.Name)).ToList();
+
+            if (unknownApps.Any())
+            {
+                Console.WriteLine($"\n--- {unknownApps.Count} Unknown Apps Found ---");
+                foreach (var app in unknownApps)
+                {
+                    Console.Write($"App: {app.Name} -> [W]hitelist, [B]lacklist/Uninstall, [S]kip: ");
+                    var choice = Console.ReadKey().Key;
+                    Console.WriteLine();
+
+                    if (choice == ConsoleKey.W)
+                    {
+                        newWhitelist.Add(app.Name);
+                    }
+                    else if (choice == ConsoleKey.B)
+                    {
+                        newBlacklist.Add(app.Name);
+                        Console.WriteLine($"[!] Silently removing: {app.Name}");
+                        UninstallAppHeadless(app.UninstallString);
+                    }
+                }
+
+                if (newWhitelist.Count > 0 || newBlacklist.Count > 0)
+                {
+                    var payload = new { whitelist = newWhitelist, blacklist = newBlacklist };
+                    await client.PostAsJsonAsync($"{ServerUrl}/lists", payload);
+                    Console.WriteLine("Server lists updated.");
+                }
+            }
+            else
+            {
+                Console.WriteLine("No unknown apps found. All apps are categorized.");
+            }
+        }
+
+        static void UninstallAppHeadless(string uninstallString)
+        {
+            if (string.IsNullOrWhiteSpace(uninstallString)) return;
+
+            try
+            {
+                string cmd = uninstallString;
+                string args = "";
+
+                if (cmd.StartsWith("\""))
+                {
+                    int nextQuote = cmd.IndexOf("\"", 1);
+                    if (nextQuote != -1)
+                    {
+                        args = cmd.Substring(nextQuote + 1).Trim();
+                        cmd = cmd.Substring(1, nextQuote - 1);
+                    }
+                }
+                else
+                {
+                    int argStart = cmd.IndexOf(" /");
+                    if (argStart == -1) argStart = cmd.IndexOf(" -");
+                    
+                    if (argStart != -1)
+                    {
+                        args = cmd.Substring(argStart).Trim();
+                        cmd = cmd.Substring(0, argStart).Trim();
+                    }
+                }
+
+                string lowerCmd = cmd.ToLower();
+                
+                if (lowerCmd.Contains("msiexec"))
+                {
+                    args = args.Replace("/I", "/X").Replace("/i", "/x"); 
+                    if (!args.ToLower().Contains("/quiet") && !args.ToLower().Contains("/qn"))
+                    {
+                        args += " /qn /norestart";
+                    }
+                }
+                else if (lowerCmd.Contains("unins000") || lowerCmd.Contains("unins001") || lowerCmd.Contains("innosetup"))
+                {
+                    args += " /VERYSILENT /SUPPRESSMSGBOXES /NORESTART";
+                }
+                else
+                {
+                    args += " /S /quiet /norestart"; 
+                }
+
+                ProcessStartInfo startInfo = new ProcessStartInfo(cmd, args)
+                {
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                    WindowStyle = ProcessWindowStyle.Hidden
+                };
+
+                using (Process process = Process.Start(startInfo))
+                {
+                    process?.WaitForExit(120000); 
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"   Silent uninstall failed: {ex.Message}");
+            }
+        }
+
+        static List<AppEntry> GetInstalledApps()
+        {
+            var apps = new List<AppEntry>();
+            string[] keys = { 
+                @"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall", 
+                @"SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall" 
+            };
+
+            foreach (var keyPath in keys)
+            {
+                using RegistryKey rk = Registry.LocalMachine.OpenSubKey(keyPath);
+                if (rk == null) continue;
+                foreach (string skName in rk.GetSubKeyNames())
+                {
+                    using RegistryKey sk = rk.OpenSubKey(skName);
+                    if (sk == null) continue;
+                    
+                    string name = sk.GetValue("DisplayName")?.ToString();
+                    string uString = sk.GetValue("UninstallString")?.ToString();
+                    
+                    if (!string.IsNullOrEmpty(name)) 
+                    {
+                        apps.Add(new AppEntry { Name = name.Trim(), UninstallString = uString });
+                    }
+                }
+            }
+            return apps;
+        }
+    }
+}

@@ -1,0 +1,2 @@
+C:\Users\malov\RiderProjects\Praxe2026\APP\Praxe2026\bin\Release\net10.0\win-x64\publish\Praxe2026.pdb
+C:\Users\malov\RiderProjects\Praxe2026\APP\Praxe2026\bin\Release\net10.0\win-x64\publish\Praxe2026.exe

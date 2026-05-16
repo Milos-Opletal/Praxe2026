@@ -1,0 +1,1 @@
+﻿dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:EnableCompressionInSingleFile=true; mv .\Praxe2026\bin\Release\net10.0\win-x64\publish\Praxe2026.exe ..\SERVER\static\app.exe 

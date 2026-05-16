@@ -1,0 +1,28 @@
+# Git
+.git
+.gitignore
+
+# Python
+SERVER/.venv
+SERVER/__pycache__
+SERVER/*.pyc
+.venv/
+__pycache__/
+
+# C# / .NET
+APP/**/bin/
+APP/**/obj/
+APP/.vs/
+APP/**/.user
+APP/**/*.user
+APP/**/*.suo
+APP/**/*.log
+
+# IDE
+.idea/
+.vscode/
+
+# Data and Build outputs (since they should not be baked into the image from the host)
+data/
+static/
+SERVER/data.json
