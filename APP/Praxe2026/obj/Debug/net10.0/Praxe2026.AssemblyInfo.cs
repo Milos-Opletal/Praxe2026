@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Praxe2026")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+d142967c65774b0dbff7e7ed5579ae2117ad6c62")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+4f2ee51dcde2d1e0020fa8a4d8bf7abff1fdceca")]
 [assembly: System.Reflection.AssemblyProductAttribute("Praxe2026")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Praxe2026")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
