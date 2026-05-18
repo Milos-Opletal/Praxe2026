@@ -91,6 +91,9 @@ namespace Praxe2026
             {
                 Console.WriteLine($"Could not calculate size: {ex.Message}");
             }
+            
+            Console.WriteLine("\nPress any key to exit...");
+            Console.ReadKey();
         }
 
         static bool IsAdministrator()
