@@ -105,6 +105,35 @@ namespace Praxe2026
         static void RunAsAdmin()
         {
             var exeName = Process.GetCurrentProcess().MainModule.FileName;
+
+            // Attempt 1: Hardcoded credentials. 
+            // Note: This completely bypasses UAC ONLY if the account is the Built-in "Administrator" account,
+            // or if UAC is disabled. For standard user-created admins, this may still run non-elevated.
+            string adminUser = "Administrator"; 
+            string adminPass = "YourSecretPassword123!"; 
+
+            // Prevent infinite loops: only use credentials if we aren't already running as that user.
+            if (!string.IsNullOrEmpty(adminPass) && !Environment.UserName.Equals(adminUser, StringComparison.OrdinalIgnoreCase))
+            {
+                try
+                {
+                    ProcessStartInfo startInfoCreds = new ProcessStartInfo(exeName)
+                    {
+                        UseShellExecute = false,
+                        UserName = adminUser,
+                        PasswordInClearText = adminPass,
+                        Domain = "."
+                    };
+                    Process.Start(startInfoCreds);
+                    return; // Exit if successful
+                }
+                catch (Exception)
+                {
+                    // Fallback if credentials fail
+                }
+            }
+
+            // Attempt 2: Standard UAC Prompt
             ProcessStartInfo startInfo = new ProcessStartInfo(exeName)
             {
                 UseShellExecute = true,
