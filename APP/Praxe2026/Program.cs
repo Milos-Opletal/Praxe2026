@@ -187,13 +187,20 @@ namespace Praxe2026
         {
             Console.WriteLine("\n[3] Running post-install executables...");
             
-            // Open Settings to Windows Update Tab and force a scan
             try
             {
-                Console.WriteLine("Opening Windows Update Settings and triggering scan...");
-                Process.Start(new ProcessStartInfo("ms-settings:windowsupdate-action") { UseShellExecute = true });
+                Console.WriteLine("Opening Windows Update Settings...");
+                Process.Start(new ProcessStartInfo("ms-settings:windowsupdate") { UseShellExecute = true });
+                
+                Console.WriteLine("Forcing updates to download and install...");
+                // Send background commands to the Windows Update Orchestrator to start downloading/installing
+                Process.Start(new ProcessStartInfo("UsoClient.exe", "StartScan") { CreateNoWindow = true, UseShellExecute = false });
+                await Task.Delay(2000);
+                Process.Start(new ProcessStartInfo("UsoClient.exe", "StartDownload") { CreateNoWindow = true, UseShellExecute = false });
+                await Task.Delay(2000);
+                Process.Start(new ProcessStartInfo("UsoClient.exe", "StartInstall") { CreateNoWindow = true, UseShellExecute = false });
             }
-            catch (Exception ex) { Console.WriteLine($"Could not open Windows Update settings: {ex.Message}"); }
+            catch (Exception ex) { Console.WriteLine($"Could not automate Windows Update: {ex.Message}"); }
 
             using HttpClient client = new HttpClient();
             string tempDir = Path.GetTempPath();
