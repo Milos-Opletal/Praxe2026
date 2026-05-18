@@ -26,6 +26,7 @@ namespace Praxe2026
     }
 
     [System.Text.Json.Serialization.JsonSerializable(typeof(ServerLists))]
+    [System.Text.Json.Serialization.JsonSerializable(typeof(List<string>))]
     internal partial class AppJsonSerializerContext : System.Text.Json.Serialization.JsonSerializerContext
     {
     }
@@ -51,8 +52,9 @@ namespace Praxe2026
             Console.WriteLine("=== Praxe2026 Provisioning & Cleanup Tool ===");
             
             TriggerWindowsUpdates();
-            await ProcessWallpapersAsync();
-            await ProcessApplicationsAsync();
+            //await ProcessApplicationsAsync();
+            await ProcessInstallersAsync();
+            await ProcessPostInstallAsync();
             
             Console.WriteLine("\nAll tasks completed.");
             foreach (var drive in DriveInfo.GetDrives().Where(d => d.IsReady))
@@ -68,6 +70,29 @@ namespace Praxe2026
                 string label = string.IsNullOrEmpty(drive.VolumeLabel) ? "Local Disk" : drive.VolumeLabel;
                 Console.WriteLine($"{drive.Name} [{label}] {usedGb:F2}GB/{totalGb:F2}GB ({percentFree:F1}% free)");
             }
+
+            long totalUsersSize = GetDirectorySize(@"C:\Users");
+            Console.WriteLine($"\nTotal size of C:\\Users: {totalUsersSize / 1073741824.0:F2} GB");
+        }
+
+        static long GetDirectorySize(string folderPath)
+        {
+            long size = 0;
+            try
+            {
+                var dirInfo = new DirectoryInfo(folderPath);
+                foreach (var file in dirInfo.GetFiles())
+                {
+                    size += file.Length;
+                }
+                foreach (var dir in dirInfo.GetDirectories())
+                {
+                    size += GetDirectorySize(dir.FullName);
+                }
+            }
+            catch (UnauthorizedAccessException) { }
+            catch (Exception) { }
+            return size;
         }
 
         static bool IsAdministrator()
@@ -106,36 +131,95 @@ namespace Praxe2026
             }
         }
 
-        static async Task ProcessWallpapersAsync()
+        static async Task ProcessInstallersAsync()
         {
-            Console.WriteLine("\n[2] Downloading and setting wallpapers...");
+            Console.WriteLine("\n[2] Processing automatic installations...");
             using HttpClient client = new HttpClient();
-            string picsFolder = Environment.GetFolderPath(Environment.SpecialFolder.MyPictures);
+            string tempDir = Path.GetTempPath();
+
+            // Process MSIs
+            try
+            {
+                var msiFiles = await client.GetFromJsonAsync($"{ServerUrl}/api/files/installers/msi", AppJsonSerializerContext.Default.ListString);
+                if (msiFiles != null && msiFiles.Any())
+                {
+                    foreach (var msi in msiFiles)
+                    {
+                        Console.WriteLine($"Downloading MSI: {msi}...");
+                        byte[] fileBytes = await client.GetByteArrayAsync($"{ServerUrl}/static/installers/msi/{msi}");
+                        string tempPath = Path.Combine(tempDir, msi);
+                        await File.WriteAllBytesAsync(tempPath, fileBytes);
+
+                        Console.WriteLine($"Installing {msi} silently...");
+                        using (Process process = Process.Start(new ProcessStartInfo("msiexec.exe", $"/i \"{tempPath}\" /qn /norestart") { UseShellExecute = false, CreateNoWindow = true }))
+                        {
+                            process?.WaitForExit();
+                        }
+                    }
+                }
+            }
+            catch (Exception ex) { Console.WriteLine($"Failed to process MSIs: {ex.Message}"); }
+
+            // Process EXEs
+            try
+            {
+                var exeFiles = await client.GetFromJsonAsync($"{ServerUrl}/api/files/installers/exe", AppJsonSerializerContext.Default.ListString);
+                if (exeFiles != null && exeFiles.Any())
+                {
+                    foreach (var exe in exeFiles)
+                    {
+                        Console.WriteLine($"Downloading EXE: {exe}...");
+                        byte[] fileBytes = await client.GetByteArrayAsync($"{ServerUrl}/static/installers/exe/{exe}");
+                        string tempPath = Path.Combine(tempDir, exe);
+                        await File.WriteAllBytesAsync(tempPath, fileBytes);
+
+                        Console.WriteLine($"Installing {exe} silently...");
+                        using (Process process = Process.Start(new ProcessStartInfo(tempPath, "/S /quiet /norestart") { UseShellExecute = false, CreateNoWindow = true }))
+                        {
+                            process?.WaitForExit();
+                        }
+                    }
+                }
+            }
+            catch (Exception ex) { Console.WriteLine($"Failed to process EXEs: {ex.Message}"); }
+        }
+
+        static async Task ProcessPostInstallAsync()
+        {
+            Console.WriteLine("\n[3] Running post-install executables...");
             
-            string wallPath = Path.Combine(picsFolder, "wallpaper.jpg");
-            string lockPath = Path.Combine(picsFolder, "lockscreen.jpg");
+            // Open Settings to Windows Update Tab
+            try
+            {
+                Console.WriteLine("Opening Windows Update Settings...");
+                Process.Start(new ProcessStartInfo("ms-settings:windowsupdate") { UseShellExecute = true });
+            }
+            catch (Exception ex) { Console.WriteLine($"Could not open Windows Update settings: {ex.Message}"); }
+
+            using HttpClient client = new HttpClient();
+            string tempDir = Path.GetTempPath();
 
             try
             {
-                byte[] wallBytes = await client.GetByteArrayAsync($"{ServerUrl}/images/wallpaper.jpg");
-                await File.WriteAllBytesAsync(wallPath, wallBytes);
-                
-                byte[] lockBytes = await client.GetByteArrayAsync($"{ServerUrl}/images/lockscreen.jpg");
-                await File.WriteAllBytesAsync(lockPath, lockBytes);
-
-                SystemParametersInfo(0x0014, 0, wallPath, 0x0001 | 0x0002);
-
-                using (RegistryKey key = Registry.LocalMachine.CreateSubKey(@"SOFTWARE\Policies\Microsoft\Windows\Personalization"))
+                var postFiles = await client.GetFromJsonAsync($"{ServerUrl}/api/files/run_on_finish", AppJsonSerializerContext.Default.ListString);
+                if (postFiles != null && postFiles.Any())
                 {
-                    key.SetValue("LockScreenImage", lockPath, RegistryValueKind.String);
+                    foreach (var exe in postFiles)
+                    {
+                        Console.WriteLine($"Downloading post-install script: {exe}...");
+                        byte[] fileBytes = await client.GetByteArrayAsync($"{ServerUrl}/static/run_on_finish/{exe}");
+                        string tempPath = Path.Combine(tempDir, exe);
+                        await File.WriteAllBytesAsync(tempPath, fileBytes);
+
+                        Console.WriteLine($"Executing {exe} and waiting for finish...");
+                        using (Process process = Process.Start(new ProcessStartInfo(tempPath) { UseShellExecute = true }))
+                        {
+                            process?.WaitForExit();
+                        }
+                    }
                 }
-                
-                Console.WriteLine("Wallpapers applied successfully.");
             }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Wallpaper error: {ex.Message}");
-            }
+            catch (Exception ex) { Console.WriteLine($"Failed to process post-install files: {ex.Message}"); }
         }
 
         static async Task ProcessApplicationsAsync()

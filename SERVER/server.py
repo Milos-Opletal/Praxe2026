@@ -42,9 +42,17 @@ def update_lists():
     return jsonify({"status": "success"})
 
 
-@app.route('/images/<filename>', methods=['GET'])
-def get_image(filename):
+@app.route('/static/<path:filename>', methods=['GET'])
+def get_static_file(filename):
     return send_from_directory('static', filename)
+
+@app.route('/api/files/<path:subpath>', methods=['GET'])
+def list_files(subpath):
+    directory = os.path.join('static', subpath)
+    if not os.path.exists(directory) or not os.path.isdir(directory):
+        return jsonify([])
+    files = [f for f in os.listdir(directory) if os.path.isfile(os.path.join(directory, f))]
+    return jsonify(files)
 
 
 @app.route('/download/<filename>', methods=['GET'])
