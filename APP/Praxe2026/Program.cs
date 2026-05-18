@@ -36,7 +36,6 @@ namespace Praxe2026
 
     [System.Text.Json.Serialization.JsonSerializable(typeof(ServerLists))]
     [System.Text.Json.Serialization.JsonSerializable(typeof(List<string>))]
-    [System.Text.Json.Serialization.JsonSerializable(typeof(AdminCredentials))]
     internal partial class AppJsonSerializerContext : System.Text.Json.Serialization.JsonSerializerContext
     {
     }
@@ -55,7 +54,7 @@ namespace Praxe2026
             if (!IsAdministrator())
             {
                 Console.WriteLine("Requesting Administrator privileges...");
-                await RunAsAdmin();
+                RunAsAdmin();
                 return;
             }
 
@@ -81,28 +80,17 @@ namespace Praxe2026
                 Console.WriteLine($"{drive.Name} [{label}] {usedGb:F2}GB/{totalGb:F2}GB ({percentFree:F1}% free)");
             }
 
-            long totalUsersSize = GetDirectorySize(@"C:\Users");
-            Console.WriteLine($"\nTotal size of C:\\Users: {totalUsersSize / 1073741824.0:F2} GB");
-        }
-
-        static long GetDirectorySize(string folderPath)
-        {
-            long size = 0;
-            try
+            Console.WriteLine("\nCalculating size of C:\\Users (please wait)...");
+            try 
             {
-                var dirInfo = new DirectoryInfo(folderPath);
-                foreach (var file in dirInfo.GetFiles())
-                {
-                    size += file.Length;
-                }
-                foreach (var dir in dirInfo.GetDirectories())
-                {
-                    size += GetDirectorySize(dir.FullName);
-                }
+                var options = new EnumerationOptions { IgnoreInaccessible = true, RecurseSubdirectories = true };
+                long totalUsersSize = new DirectoryInfo(@"C:\Users").EnumerateFiles("*", options).Sum(f => f.Length);
+                Console.WriteLine($"Total size of C:\\Users: {totalUsersSize / 1073741824.0:F2} GB");
             }
-            catch (UnauthorizedAccessException) { }
-            catch (Exception) { }
-            return size;
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Could not calculate size: {ex.Message}");
+            }
         }
 
         static bool IsAdministrator()
@@ -112,52 +100,10 @@ namespace Praxe2026
             return principal.IsInRole(WindowsBuiltInRole.Administrator);
         }
 
-        static async Task RunAsAdmin()
+        static void RunAsAdmin()
         {
             var exeName = Process.GetCurrentProcess().MainModule.FileName;
 
-            string adminUser = ""; 
-            string adminPass = ""; 
-
-            // Fetch credentials securely from the server
-            try
-            {
-                using HttpClient client = new HttpClient();
-                client.Timeout = TimeSpan.FromSeconds(5);
-                var creds = await client.GetFromJsonAsync($"{ServerUrl}/api/creds", AppJsonSerializerContext.Default.AdminCredentials);
-                if (creds != null)
-                {
-                    adminUser = creds.User;
-                    adminPass = creds.Pass;
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Warning: Could not fetch credentials from server: {ex.Message}");
-            }
-
-            // Prevent infinite loops: only use credentials if we aren't already running as that user.
-            if (!string.IsNullOrEmpty(adminPass) && !Environment.UserName.Equals(adminUser, StringComparison.OrdinalIgnoreCase))
-            {
-                try
-                {
-                    ProcessStartInfo startInfoCreds = new ProcessStartInfo(exeName)
-                    {
-                        UseShellExecute = false,
-                        UserName = adminUser,
-                        PasswordInClearText = adminPass,
-                        Domain = "."
-                    };
-                    Process.Start(startInfoCreds);
-                    return; // Exit if successful
-                }
-                catch (Exception)
-                {
-                    // Fallback if credentials fail
-                }
-            }
-
-            // Attempt 2: Standard UAC Prompt
             ProcessStartInfo startInfo = new ProcessStartInfo(exeName)
             {
                 UseShellExecute = true,
@@ -241,11 +187,11 @@ namespace Praxe2026
         {
             Console.WriteLine("\n[3] Running post-install executables...");
             
-            // Open Settings to Windows Update Tab
+            // Open Settings to Windows Update Tab and force a scan
             try
             {
-                Console.WriteLine("Opening Windows Update Settings...");
-                Process.Start(new ProcessStartInfo("ms-settings:windowsupdate") { UseShellExecute = true });
+                Console.WriteLine("Opening Windows Update Settings and triggering scan...");
+                Process.Start(new ProcessStartInfo("ms-settings:windowsupdate-action") { UseShellExecute = true });
             }
             catch (Exception ex) { Console.WriteLine($"Could not open Windows Update settings: {ex.Message}"); }
 

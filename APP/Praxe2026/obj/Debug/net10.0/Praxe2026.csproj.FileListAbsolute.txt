@@ -1,0 +1,15 @@
+C:\Users\malov\RiderProjects\Praxe2026\APP\Praxe2026\bin\Debug\net10.0\Praxe2026.exe
+C:\Users\malov\RiderProjects\Praxe2026\APP\Praxe2026\bin\Debug\net10.0\Praxe2026.deps.json
+C:\Users\malov\RiderProjects\Praxe2026\APP\Praxe2026\bin\Debug\net10.0\Praxe2026.runtimeconfig.json
+C:\Users\malov\RiderProjects\Praxe2026\APP\Praxe2026\bin\Debug\net10.0\Praxe2026.dll
+C:\Users\malov\RiderProjects\Praxe2026\APP\Praxe2026\bin\Debug\net10.0\Praxe2026.pdb
+C:\Users\malov\RiderProjects\Praxe2026\APP\Praxe2026\obj\Debug\net10.0\Praxe2026.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\malov\RiderProjects\Praxe2026\APP\Praxe2026\obj\Debug\net10.0\Praxe2026.AssemblyInfoInputs.cache
+C:\Users\malov\RiderProjects\Praxe2026\APP\Praxe2026\obj\Debug\net10.0\Praxe2026.AssemblyInfo.cs
+C:\Users\malov\RiderProjects\Praxe2026\APP\Praxe2026\obj\Debug\net10.0\Praxe2026.csproj.CoreCompileInputs.cache
+C:\Users\malov\RiderProjects\Praxe2026\APP\Praxe2026\obj\Debug\net10.0\Praxe2026.sourcelink.json
+C:\Users\malov\RiderProjects\Praxe2026\APP\Praxe2026\obj\Debug\net10.0\Praxe2026.dll
+C:\Users\malov\RiderProjects\Praxe2026\APP\Praxe2026\obj\Debug\net10.0\refint\Praxe2026.dll
+C:\Users\malov\RiderProjects\Praxe2026\APP\Praxe2026\obj\Debug\net10.0\Praxe2026.pdb
+C:\Users\malov\RiderProjects\Praxe2026\APP\Praxe2026\obj\Debug\net10.0\Praxe2026.genruntimeconfig.cache
+C:\Users\malov\RiderProjects\Praxe2026\APP\Praxe2026\obj\Debug\net10.0\ref\Praxe2026.dll

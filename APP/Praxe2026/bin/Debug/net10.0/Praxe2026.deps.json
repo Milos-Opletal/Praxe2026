@@ -1,0 +1,23 @@
+{
+  "runtimeTarget": {
+    "name": ".NETCoreApp,Version=v10.0",
+    "signature": ""
+  },
+  "compilationOptions": {},
+  "targets": {
+    ".NETCoreApp,Version=v10.0": {
+      "Praxe2026/1.0.0": {
+        "runtime": {
+          "Praxe2026.dll": {}
+        }
+      }
+    }
+  },
+  "libraries": {
+    "Praxe2026/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    }
+  }
+}
