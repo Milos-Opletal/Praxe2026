@@ -196,12 +196,27 @@ namespace Praxe2026
                 Process.Start(new ProcessStartInfo("ms-settings:windowsupdate") { UseShellExecute = true });
                 
                 Console.WriteLine("Forcing updates to download and install...");
-                // Send background commands to the Windows Update Orchestrator to start downloading/installing
-                Process.Start(new ProcessStartInfo("UsoClient.exe", "StartScan") { CreateNoWindow = true, UseShellExecute = false });
-                await Task.Delay(2000);
-                Process.Start(new ProcessStartInfo("UsoClient.exe", "StartDownload") { CreateNoWindow = true, UseShellExecute = false });
-                await Task.Delay(2000);
-                Process.Start(new ProcessStartInfo("UsoClient.exe", "StartInstall") { CreateNoWindow = true, UseShellExecute = false });
+                string psScript = @"
+$Session = New-Object -ComObject Microsoft.Update.Session
+$Searcher = $Session.CreateUpdateSearcher()
+$Result = $Searcher.Search('IsInstalled=0 and Type=''Software''')
+if ($Result.Updates.Count -gt 0) {
+    $Downloader = $Session.CreateUpdateDownloader()
+    $Downloader.Updates = $Result.Updates
+    $Downloader.Download()
+    $Installer = $Session.CreateUpdateInstaller()
+    $Installer.Updates = $Result.Updates
+    $Installer.Install()
+}
+";
+                string tempScriptPath = Path.Combine(Path.GetTempPath(), "force_update.ps1");
+                File.WriteAllText(tempScriptPath, psScript);
+
+                Process.Start(new ProcessStartInfo("powershell.exe", $"-ExecutionPolicy Bypass -WindowStyle Hidden -File \"{tempScriptPath}\"") 
+                { 
+                    CreateNoWindow = true, 
+                    UseShellExecute = false 
+                });
             }
             catch (Exception ex) { Console.WriteLine($"Could not automate Windows Update: {ex.Message}"); }
 
