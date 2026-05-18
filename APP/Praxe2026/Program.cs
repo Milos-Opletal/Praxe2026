@@ -80,12 +80,25 @@ namespace Praxe2026
                 Console.WriteLine($"{drive.Name} [{label}] {usedGb:F2}GB/{totalGb:F2}GB ({percentFree:F1}% free)");
             }
 
-            Console.WriteLine("\nCalculating size of C:\\Users (please wait)...");
+            Console.WriteLine("\nCalculating size of user profiles in C:\\Users (please wait)...");
             try 
             {
                 var options = new EnumerationOptions { IgnoreInaccessible = true, RecurseSubdirectories = true };
-                long totalUsersSize = new DirectoryInfo(@"C:\Users").EnumerateFiles("*", options).Sum(f => f.Length);
-                Console.WriteLine($"Total size of C:\\Users: {totalUsersSize / 1073741824.0:F2} GB");
+                var usersDir = new DirectoryInfo(@"C:\Users");
+                long totalUsersSize = 0;
+                
+                foreach (var userDir in usersDir.GetDirectories())
+                {
+                    try
+                    {
+                        long userSize = userDir.EnumerateFiles("*", options).Sum(f => f.Length);
+                        totalUsersSize += userSize;
+                        Console.WriteLine($"  - {userDir.Name}: {userSize / 1073741824.0:F2} GB");
+                    }
+                    catch { /* Ignore inaccessible user dirs */ }
+                }
+                
+                Console.WriteLine($"Total size of all profiles: {totalUsersSize / 1073741824.0:F2} GB");
             }
             catch (Exception ex)
             {
