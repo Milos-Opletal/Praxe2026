@@ -55,6 +55,14 @@ def list_files(subpath):
     return jsonify(files)
 
 
+@app.route('/api/creds', methods=['GET'])
+def get_credentials():
+    creds_file = 'data/creds.json'
+    if not os.path.exists(creds_file):
+        return jsonify({"user": "", "pass": ""})
+    with open(creds_file, 'r') as f:
+        return jsonify(json.load(f))
+
 @app.route('/download/<filename>', methods=['GET'])
 def download_file(filename):
     return send_from_directory('build', filename, as_attachment=True)

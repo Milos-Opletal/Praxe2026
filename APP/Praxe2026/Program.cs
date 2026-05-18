@@ -25,8 +25,18 @@ namespace Praxe2026
         public List<string> blacklist { get; set; }
     }
 
+    public class AdminCredentials
+    {
+        [System.Text.Json.Serialization.JsonPropertyName("user")]
+        public string User { get; set; }
+        
+        [System.Text.Json.Serialization.JsonPropertyName("pass")]
+        public string Pass { get; set; }
+    }
+
     [System.Text.Json.Serialization.JsonSerializable(typeof(ServerLists))]
     [System.Text.Json.Serialization.JsonSerializable(typeof(List<string>))]
+    [System.Text.Json.Serialization.JsonSerializable(typeof(AdminCredentials))]
     internal partial class AppJsonSerializerContext : System.Text.Json.Serialization.JsonSerializerContext
     {
     }
@@ -45,7 +55,7 @@ namespace Praxe2026
             if (!IsAdministrator())
             {
                 Console.WriteLine("Requesting Administrator privileges...");
-                RunAsAdmin();
+                await RunAsAdmin();
                 return;
             }
 
@@ -102,15 +112,29 @@ namespace Praxe2026
             return principal.IsInRole(WindowsBuiltInRole.Administrator);
         }
 
-        static void RunAsAdmin()
+        static async Task RunAsAdmin()
         {
             var exeName = Process.GetCurrentProcess().MainModule.FileName;
 
-            // Attempt 1: Hardcoded credentials. 
-            // Note: This completely bypasses UAC ONLY if the account is the Built-in "Administrator" account,
-            // or if UAC is disabled. For standard user-created admins, this may still run non-elevated.
-            string adminUser = "Administrator"; 
-            string adminPass = "YourSecretPassword123!"; 
+            string adminUser = ""; 
+            string adminPass = ""; 
+
+            // Fetch credentials securely from the server
+            try
+            {
+                using HttpClient client = new HttpClient();
+                client.Timeout = TimeSpan.FromSeconds(5);
+                var creds = await client.GetFromJsonAsync($"{ServerUrl}/api/creds", AppJsonSerializerContext.Default.AdminCredentials);
+                if (creds != null)
+                {
+                    adminUser = creds.User;
+                    adminPass = creds.Pass;
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Warning: Could not fetch credentials from server: {ex.Message}");
+            }
 
             // Prevent infinite loops: only use credentials if we aren't already running as that user.
             if (!string.IsNullOrEmpty(adminPass) && !Environment.UserName.Equals(adminUser, StringComparison.OrdinalIgnoreCase))
